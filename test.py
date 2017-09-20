@@ -151,7 +151,8 @@ def batch_execute(nodes, command, env, cwd, launcher_name, root_dir):
     file.write('#PBS -l walltime=0:10:00,nodes=' + str(nodes) + '\n')
     file.write('#PBS -l gres=atlas1%atlas2\n')
     for key in env.keys():
-        file.write('export ' + key.replace('()', '') + '="' + env[key].replace('()', '') + '"\n')
+        if key.startsWith('PERF_'):
+            file.write('export ' + key + "='" + env[key]
     file.write('cd $MEMBERWORK/' + account + '\n')
     file.write('date\n')
     command_string = ' '.join(command)
@@ -330,7 +331,7 @@ def git_branch_name(repo_dir):
 
 def run_test_perf(launcher, root_dir, tmp_dir, bin_dir, env, thread_count):
     nodes = 1
-    while nodes < int(env['PERF_MAX_NODES']):
+    while nodes <= int(env['PERF_MAX_NODES']):
         run_test_perf_one_configuration(launcher, root_dir, tmp_dir, bin_dir, env, thread_count, nodes)
         nodes = nodes * 2
 

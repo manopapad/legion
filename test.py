@@ -152,7 +152,7 @@ def batch_execute(nodes, command, env, cwd, launcher_name, root_dir):
     file.write('#PBS -l gres=atlas1%atlas2\n')
     for key in env.keys():
         if key.startsWith('PERF_'):
-            file.write('export ' + key + "='" + env[key]
+            file.write('export ' + key + "='" + env[key])
     file.write('cd $MEMBERWORK/' + account + '\n')
     file.write('date\n')
     command_string = ' '.join(command)

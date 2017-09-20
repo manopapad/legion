@@ -10,20 +10,18 @@ export DEBUG=0
 for branch in master dma deppart; do
     if [[ -d _legion_$branch ]]; then
         pushd _legion_$branch
-        git pull --ff-only
-        git reset --hard HEAD
-        git clean -fdx
-        if [[ -d $TERRA_DIR ]]; then
-            ln -s "$TERRA_DIR" language/terra
-        fi
+        #git pull --ff-only
+        #git reset --hard HEAD
+        #git clean -fdx
         popd
     else
         git clone -b $branch https://github.com/StanfordLegion/legion.git _legion_$branch
-        if [[ -d $TERRA_DIR ]]; then
-            ln -s "$TERRA_DIR" language/terra
-        fi
     fi
     pushd _legion_$branch
-    ./test.py --test=perf
+    if [[ -d $TERRA_DIR ]]; then
+        rm -rf language/terra
+        ln -s "$TERRA_DIR" language/terra 
+    fi
+    ./test.py --test=perf ${TEST_ARGUMENTS}
     popd
 done

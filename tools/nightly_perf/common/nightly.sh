@@ -22,6 +22,8 @@ for branch in performance_test master dma deppart; do
         rm -rf language/terra
         ln -s "$TERRA_DIR" language/terra 
     fi
-    ./test.py --test=perf ${TEST_ARGUMENTS}
+    command="./test.py --test=perf ${TEST_ARGUMENTS}"
+    echo $command
+    $command
     popd
 done

@@ -11,17 +11,14 @@ then
   exit -1
 fi
 
-export TERRA_DIR="${LG_RT_DIR}/../language/terra"
-
-source titan_setup.bash
-source env.bash  # defines PERF_ACCESS_TOKEN, DO NOT CHECK env.bash INTO THE REPO
-
-export CI_RUNNER_DESCRIPTION="titan.ccs.ornl.gov"
-
-export TEST_ARGUMENTS='--perf_max_nodes=1 --perf_min_nodes=1'
+cat nightly.script \
+	| sed -e "s/__NODES__/1/" \
+	| sed -e "s/__TEST_ARGUMENTS__/--perf_max_nodes=1 --perf_min_nodes=1/" \
+	| sed -e "s:__LG_RT_DIR__:${LG_RT_DIR}:" \
+	> n.script
 
 mkdir -p log
 pushd log
-qsub ../common/nightly.sh
+qsub ../n.script
 popd
 

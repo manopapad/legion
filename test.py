@@ -18,9 +18,6 @@
 from __future__ import print_function
 import argparse, datetime, glob, json, multiprocessing, os, platform, shutil, subprocess, sys, traceback, tempfile
 
-def perf_nodes(perf_cores_per_node, nodes):
-    return perf_cores_per_node * nodes
-
 # Find physical core count of the machine.
 if platform.system() == 'Linux':
     lines = subprocess.check_output(['lscpu', '--parse=core'])
@@ -89,36 +86,6 @@ legion_hdf_cxx_tests = [
 ]
 
 
-legion_cxx_perf_tests = [
-    # Circuit: Heavy Compute
-    ['examples/circuit/circuit',
-     ['-l', '10', '-p', perf_nodes(perf_cores_per_node, nodes), '-npp', '2500', '-wpp', '10000', '-ll:cpu', perf_cores_per_node]],
-
-    # Circuit: Light Compute
-    ['examples/circuit/circuit',
-     ['-l', '10', '-p', '100', '-npp', '2', '-wpp', '4', '-ll:cpu', '2']],
-]
-
-regent_perf_tests = [
-    # Circuit: Heavy Compute
-    ['language/examples/circuit_sparse.rg',
-     ['-l', '10', '-p', perf_nodes(perf_cores_per_node, nodes), '-npp', '2500', '-wpp', '10000', '-ll:cpu', perf_cores_per_node,
-      '-fflow-spmd-shardsize', perf_cores_per_node]],
-
-    # Circuit: Light Compute
-    ['language/examples/circuit_sparse.rg',
-     ['-l', '10', '-p', '100', '-npp', '2', '-wpp', '4', '-ll:cpu', '2',
-      '-fflow-spmd-shardsize', '2']],
-
-    # PENNANT: Heavy Compute
-    ['language/examples/pennant_fast.rg',
-     ['pennant.tests/sedovbig3x30/sedovbig.pnt',
-      '-seq_init', '0', '-par_init', '1', '-print_ts', '1', '-prune', '5',
-      '-npieces', perf_cores_per_node, '-numpcx', '1', '-numpcy', perf_cores_per_node,
-      '-ll:csize', '8192', '-ll:cpu', perf_cores_per_node, '-fflow-spmd-shardsize', perf_cores_per_node,
-      '-fvectorize-unsafe', '1']],
-]
-
 def cmd(command, env=None, cwd=None):
     print(' '.join(command))
     return subprocess.check_call(command, env=env, cwd=cwd)
@@ -137,9 +104,8 @@ def launcher_with_nodes(perf_launcher, nodes):
     else:
         return perf_launcher
 
-def run_cxx(tests, flags, launcher, root_dir, bin_dir, env, thread_count, nodes=1):
+def run_cxx(tests, flags, launcher, root_dir, bin_dir, env, thread_count):
     for test_file, test_flags in tests:
-        test_flags = evaluate_lambda(test_flags, nodes)
         test_dir = os.path.dirname(os.path.join(root_dir, test_file))
         if bin_dir:
             test_path = os.path.join(bin_dir, os.path.basename(test_file))
@@ -148,9 +114,8 @@ def run_cxx(tests, flags, launcher, root_dir, bin_dir, env, thread_count, nodes=
             cmd(['make', '-C', test_dir, '-j', str(thread_count)], env=env)
         cmd(launcher + [test_path] + flags + test_flags, env=env, cwd=test_dir)
 
-def run_regent(tests, flags, launcher, root_dir, env, thread_count, nodes=1):
+def run_regent(tests, flags, launcher, root_dir, env, thread_count):
     for test_file, test_flags in tests:
-        test_flags = evaluate_lambda(test_flags, nodes)
         test_dir = os.path.dirname(os.path.join(root_dir, test_file))
         test_path = os.path.join(root_dir, test_file)
         cmd(launcher + [test_path] + flags + test_flags, env=env, cwd=test_dir)
@@ -291,6 +256,35 @@ def run_test_perf(launcher, root_dir, tmp_dir, bin_dir, env, thread_count):
 
 def run_test_perf_one_configuration(launcher, root_dir, tmp_dir, bin_dir, env, thread_count, nodes):
     flags = ['-logfile', 'out_%.log']
+    legion_cxx_perf_tests = [
+        # Circuit: Heavy Compute
+        ['examples/circuit/circuit',
+         ['-l', '10', '-p', perf_cores_per_node * nodes, '-npp', '2500', '-wpp', '10000', '-ll:cpu', perf_cores_per_node]],
+
+        # Circuit: Light Compute
+        ['examples/circuit/circuit',
+         ['-l', '10', '-p', '100', '-npp', '2', '-wpp', '4', '-ll:cpu', '2']],
+    ]
+
+    regent_perf_tests = [
+        # Circuit: Heavy Compute
+        ['language/examples/circuit_sparse.rg',
+         ['-l', '10', '-p', perf_cores_per_node * nodes, '-npp', '2500', '-wpp', '10000', '-ll:cpu', perf_cores_per_node,
+          '-fflow-spmd-shardsize', perf_cores_per_node]],
+
+        # Circuit: Light Compute
+        ['language/examples/circuit_sparse.rg',
+         ['-l', '10', '-p', '100', '-npp', '2', '-wpp', '4', '-ll:cpu', '2',
+          '-fflow-spmd-shardsize', '2']],
+
+        # PENNANT: Heavy Compute
+        ['language/examples/pennant_fast.rg',
+         ['pennant.tests/sedovbig3x30/sedovbig.pnt',
+          '-seq_init', '0', '-par_init', '1', '-print_ts', '1', '-prune', '5',
+          '-npieces', perf_cores_per_node, '-numpcx', '1', '-numpcy', perf_cores_per_node,
+          '-ll:csize', '8192', '-ll:cpu', perf_cores_per_node, '-fflow-spmd-shardsize', perf_cores_per_node,
+          '-fvectorize-unsafe', '1']],
+    ]
 
     # Performance test configuration:
     metadata = {
@@ -365,12 +359,12 @@ def run_test_perf_one_configuration(launcher, root_dir, tmp_dir, bin_dir, env, t
 
     # Run Legion C++ performance tests.
     runner = os.path.join(root_dir, 'perf.py')
-    run_cxx(legion_cxx_perf_tests, flags, [runner], root_dir, bin_dir, cxx_env, thread_count, nodes)
+    run_cxx(legion_cxx_perf_tests, flags, [runner], root_dir, bin_dir, cxx_env, thread_count)
 
     # Run Regent performance tests.
     regent_path = os.path.join(root_dir, 'language/regent.py')
     # FIXME: PENNANT can't handle the -logfile flag coming first, so just skip it.
-    run_regent(regent_perf_tests, [], [runner, regent_path], root_dir, regent_env, thread_count, nodes)
+    run_regent(regent_perf_tests, [], [runner, regent_path], root_dir, regent_env, thread_count)
 
     # Render the final charts.
     subprocess.check_call(
